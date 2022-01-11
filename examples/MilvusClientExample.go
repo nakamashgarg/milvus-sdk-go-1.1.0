@@ -35,7 +35,7 @@ var indexFileSize int64 = 1024
 var metricType int32 = int32(milvus.L2)
 var nq int64 = 100
 var nprobe int64 = 64
-var nb int64 = 100000
+var nb int64 = 1000
 var topk int64 = 100
 var nlist int64 = 16384
 var err error
@@ -143,6 +143,8 @@ func insertToMilvus(ctx context.Context, client milvus.MilvusClient, wg *sync.Wa
 	println("**************************************************")
 	records := make([]milvus.Entity, nb)
 	recordArray := make([][]float32, nb)
+	vector_ids := makeRange(0, nb)
+	println("**********************  ", len(vector_ids))
 	for i = 0; i < nb; i++ {
 		recordArray[i] = make([]float32, dimension)
 		for j = 0; j < dimension; j++ {
@@ -150,8 +152,9 @@ func insertToMilvus(ctx context.Context, client milvus.MilvusClient, wg *sync.Wa
 		}
 		records[i].FloatData = recordArray[i]
 	}
-	insertParam := milvus.InsertParam{collectionName, "", records, nil}
+	insertParam := milvus.InsertParam{collectionName, "", records, vector_ids}
 	id_array, status, err := client.Insert(ctx, &insertParam)
+
 	if err != nil {
 		println("Insert rpc failed: " + err.Error())
 		return
@@ -160,10 +163,19 @@ func insertToMilvus(ctx context.Context, client milvus.MilvusClient, wg *sync.Wa
 		println("Insert vector failed: " + status.GetMessage())
 		return
 	}
-	if len(id_array) != int(nb) {
-		println("ERROR: return id array is null")
-	}
+	println("*********************************")
+	println("len of array after insert is", len(id_array))
 	println("Insert vectors success!")
+}
+
+func makeRange(min, max int64) []int64 {
+	a := make([]int64, max-min)
+	var i int64
+
+	for i = 0; i < int64(len(a)); i++ {
+		a[i] = min + i
+	}
+	return a
 }
 
 /**
@@ -205,18 +217,17 @@ func dropCollection(ctx context.Context, client milvus.MilvusClient) {
 }
 
 func main() {
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	address := "10.21.33.1"
 	port := "19530"
 	var ctx, client = serverConnection(address, port)
-	//test show collections
-	createCollection(ctx, client)
+	//createCollection(ctx, client)
+	searchEntityById(ctx, client)
+	// wg.Add(2)
+	// insertToMilvus(ctx, client, &wg)
+	// deleteToMilvus(ctx, client, &wg)
+	// wg.Wait()
+	countEntities(ctx, client)
 	println("**************************************************")
-	wg.Add(2)
-	go insertToMilvus(ctx, client, &wg)
-	go deleteToMilvus(ctx, client, &wg)
-	println("**************************************************")
-	wg.Wait()
-	dropCollection(ctx, client)
 	//dropCollection(ctx, client)
 }
