@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 
 	"github.com/milvus-io/milvus-sdk-go/milvus"
@@ -11,6 +12,15 @@ import (
    deleting records with indexes from milvus
 */
 func deleteToMilvus(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitGroup) {
+	defer wg.Done()
+	var loop bool
+	loop = true
+	for loop == true {
+		//	delete(ctx, client)
+	}
+}
+
+func delete(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer measureTime("deleteFromMilvus")()
 	println("inside delete record function")
@@ -67,4 +77,37 @@ func searchEntityById(ctx context.Context, client milvus.MilvusClient) {
 	for _, elem := range entity {
 		println("float****", elem.FloatData[0])
 	}
+}
+func searchEntityByVector(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer measureTime("searchEntityByVector")()
+	var i, j int64
+	//Construct query vectors
+	queryRecords := make([]milvus.Entity, nq)
+	queryVectors := make([][]float32, nq)
+
+	for i = 0; i < nq; i++ {
+		queryVectors[i] = make([]float32, dimension)
+		for j = 0; j < dimension; j++ {
+			queryVectors[i][j] = float32(rand.Float64())
+		}
+		queryRecords[i].FloatData = queryVectors[i]
+	}
+
+	var topkQueryResult milvus.TopkQueryResult
+	extraParams := "{\"nprobe\" : 32}"
+	searchParam := milvus.SearchParam{collectionName, queryRecords, topk, nil, extraParams}
+	topkQueryResult, status, err = client.Search(ctx, searchParam)
+	if err != nil {
+		println("Search rpc failed: " + err.Error())
+	}
+	println(topkQueryResult.QueryResultList[0].Distances[0])
+	// println("Search without index results: ")
+	// for i = 0; i < 100; i++ {
+	// 	print(topkQueryResult.QueryResultList[i].Ids[0])
+	// 	print("        ")
+	// 	println(topkQueryResult.QueryResultList[i].Distances[0])
+	// }
+
+	println("**************************************************")
 }
