@@ -33,9 +33,9 @@ var collectionName string = "test_go2"
 var dimension int64 = 128
 var indexFileSize int64 = 1024
 var metricType int32 = int32(milvus.L2)
-var nq int64 = 100
+var nq int64 = 1000
 var nprobe int64 = 64
-var nb int64 = 1000
+var nb int64 = 100000
 var topk int64 = 100
 var nlist int64 = 16384
 var err error
@@ -124,8 +124,7 @@ func createCollection(ctx context.Context, client milvus.MilvusClient) {
 **/
 func insertToMilvus(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitGroup) {
 	defer wg.Done()
-	defer measureTime("insertToMilvus")()
-	var i, j int64
+	var i int64
 	var collections []string
 	collections, status, err = client.ListCollections(ctx)
 	if err != nil {
@@ -141,10 +140,21 @@ func insertToMilvus(ctx context.Context, client milvus.MilvusClient, wg *sync.Wa
 		println(" - " + collections[i])
 	}
 	println("**************************************************")
+
+	var loop bool
+	loop = true
+	for loop == true {
+		//insert(ctx, client)
+	}
+}
+
+func insert(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer measureTime("insertToMilvus")()
+	var i, j int64
 	records := make([]milvus.Entity, nb)
 	recordArray := make([][]float32, nb)
 	vector_ids := makeRange(0, nb)
-	println("**********************  ", len(vector_ids))
 	for i = 0; i < nb; i++ {
 		recordArray[i] = make([]float32, dimension)
 		for j = 0; j < dimension; j++ {
@@ -153,7 +163,7 @@ func insertToMilvus(ctx context.Context, client milvus.MilvusClient, wg *sync.Wa
 		records[i].FloatData = recordArray[i]
 	}
 	insertParam := milvus.InsertParam{collectionName, "", records, vector_ids}
-	id_array, status, err := client.Insert(ctx, &insertParam)
+	_, status, err := client.Insert(ctx, &insertParam)
 
 	if err != nil {
 		println("Insert rpc failed: " + err.Error())
@@ -163,8 +173,6 @@ func insertToMilvus(ctx context.Context, client milvus.MilvusClient, wg *sync.Wa
 		println("Insert vector failed: " + status.GetMessage())
 		return
 	}
-	println("*********************************")
-	println("len of array after insert is", len(id_array))
 	println("Insert vectors success!")
 }
 
@@ -217,16 +225,22 @@ func dropCollection(ctx context.Context, client milvus.MilvusClient) {
 }
 
 func main() {
-	//var wg sync.WaitGroup
+	//	var wg sync.WaitGroup
 	address := "10.21.33.1"
 	port := "19530"
 	var ctx, client = serverConnection(address, port)
 	//createCollection(ctx, client)
-	searchEntityById(ctx, client)
-	// wg.Add(2)
-	// insertToMilvus(ctx, client, &wg)
-	// deleteToMilvus(ctx, client, &wg)
-	// wg.Wait()
+	//searchEntityByVector(ctx, client)
+	//searchEntityById(ctx, client)
+	//var loop bool
+	//loop = true
+	// for loop == true {
+	// 	wg.Add(3)
+	// 	insert(ctx, client, &wg)
+	// 	delete(ctx, client, &wg)
+	// 	searchEntityByVector(ctx, client, &wg)
+	// 	wg.Wait()
+	// }
 	countEntities(ctx, client)
 	println("**************************************************")
 	//dropCollection(ctx, client)
