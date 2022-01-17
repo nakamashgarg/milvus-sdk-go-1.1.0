@@ -229,10 +229,12 @@ func main() {
 	address := "10.21.33.1"
 	port := "19530"
 	var ctx, client = serverConnection(address, port)
-	createCollection(ctx, client)
-	wg.Add(2)
+	//	createCollection(ctx, client)
+
+	wg.Add(3)
 	go insertFilms(ctx, client, &wg)
 	go deleteFilms(ctx, client, &wg)
+	go searchByVector(ctx, client, &wg)
 	wg.Wait()
 	countEntities(ctx, client)
 	println("**************************************************")
