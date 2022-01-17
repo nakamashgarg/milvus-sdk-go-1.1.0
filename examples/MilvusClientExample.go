@@ -30,7 +30,7 @@ import (
 )
 
 var collectionName string = "test_go2"
-var dimension int64 = 128
+var dimension int64 = 8
 var indexFileSize int64 = 1024
 var metricType int32 = int32(milvus.L2)
 var nq int64 = 1000
@@ -225,23 +225,17 @@ func dropCollection(ctx context.Context, client milvus.MilvusClient) {
 }
 
 func main() {
-	//	var wg sync.WaitGroup
+	var wg sync.WaitGroup
 	address := "10.21.33.1"
 	port := "19530"
 	var ctx, client = serverConnection(address, port)
-	//createCollection(ctx, client)
-	//searchEntityByVector(ctx, client)
-	//searchEntityById(ctx, client)
-	//var loop bool
-	//loop = true
-	// for loop == true {
-	// 	wg.Add(3)
-	// 	insert(ctx, client, &wg)
-	// 	delete(ctx, client, &wg)
-	// 	searchEntityByVector(ctx, client, &wg)
-	// 	wg.Wait()
-	// }
+	createCollection(ctx, client)
+	wg.Add(2)
+	go insertFilms(ctx, client, &wg)
+	go deleteFilms(ctx, client, &wg)
+	wg.Wait()
 	countEntities(ctx, client)
 	println("**************************************************")
 	//dropCollection(ctx, client)
+
 }
