@@ -12,7 +12,8 @@ import (
 	"github.com/milvus-io/milvus-sdk-go/milvus"
 )
 
-func insertSingleFilm(ctx context.Context, client milvus.MilvusClient, film film) {
+func insertSingleFilm(ctx context.Context, client milvus.MilvusClient, film film, wg *sync.WaitGroup) {
+	defer wg.Done()
 	defer measureTime("insertion of single record")()
 	vectors := make([][]float32, 0, 1)
 	records := make([]milvus.Entity, 1)
@@ -34,7 +35,7 @@ func insertSingleFilm(ctx context.Context, client milvus.MilvusClient, film film
 		println("Insert vector failed: " + status.GetMessage())
 		return
 	}
-	println("Insert vectors success!")
+	//println("Insert vectors success!")
 }
 
 /*
@@ -48,13 +49,17 @@ func insertFilms(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitG
 	if err != nil {
 		log.Fatal("failed to load film data csv:", err.Error())
 	}
-	for i = 1000; i < 2500; i++ {
-		insertSingleFilm(ctx, client, films[i])
+	var wg1 sync.WaitGroup
+	for i = 0; i < 1500; i++ {
+		wg1.Add(1)
+		go insertSingleFilm(ctx, client, films[i], &wg1)
 	}
+	wg1.Wait()
 
 }
-func deleteSingleFilm(ctx context.Context, client milvus.MilvusClient, id_array []int64) {
+func deleteSingleFilm(ctx context.Context, client milvus.MilvusClient, id_array []int64, wg *sync.WaitGroup) {
 	defer measureTime("deletion of single record")()
+	defer wg.Done()
 	status, err := client.DeleteEntityByID(ctx, collectionName, "", id_array)
 	if err != nil {
 		println("delete vector failed: " + err.Error())
@@ -62,28 +67,32 @@ func deleteSingleFilm(ctx context.Context, client milvus.MilvusClient, id_array 
 	if !status.Ok() {
 		println("Delete vector failed: " + status.GetMessage())
 	}
-	println("delete vector success")
+	//println("delete vector success")
 }
 
 func deleteFilms(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer measureTime("==============**********total time to delete 1500 records is**********============")()
 	var i int64
-	for i = 1500; i < 3000; i++ {
-		deleteSingleFilm(ctx, client, []int64{i})
+	var wg1 sync.WaitGroup
+	for i = 0; i < 1500; i++ {
+		wg1.Add(1)
+		deleteSingleFilm(ctx, client, []int64{i}, &wg1)
 	}
+	wg1.Wait()
 }
 
-func searchBySingleVector(ctx context.Context, client milvus.MilvusClient, records []milvus.Entity) {
+func searchBySingleVector(ctx context.Context, client milvus.MilvusClient, records []milvus.Entity, wg *sync.WaitGroup) {
 	defer measureTime(" search single record")()
-	var topkQueryResult milvus.TopkQueryResult
+	defer wg.Done()
+	//var topkQueryResult milvus.TopkQueryResult
 	extraParams := "{\"nprobe\" : 32}"
 	searchParam := milvus.SearchParam{collectionName, records, topk, nil, extraParams}
-	topkQueryResult, status, err = client.Search(ctx, searchParam)
+	_, status, err = client.Search(ctx, searchParam)
 	if err != nil {
 		println("Search rpc failed: " + err.Error())
 	}
-	println("total records", len(topkQueryResult.QueryResultList[0].Distances))
+	//println("total records", len(topkQueryResult.QueryResultList[0].Distances))
 }
 
 /*
@@ -98,14 +107,17 @@ func searchByVector(ctx context.Context, client milvus.MilvusClient, wg *sync.Wa
 	if err != nil {
 		log.Fatal("failed to load film data csv:", err.Error())
 	}
-	for i = 0; i < 300; i++ {
+	var wg1 sync.WaitGroup
+	for i = 2000; i < 2300; i++ {
+		wg1.Add(1)
 		vectors := make([][]float32, 0, 1)
 		records := make([]milvus.Entity, 1)
 		vectors = append(vectors, films[i].Vector[:]) // prevent same vector
-		println(films[i].Vector[:])
+		//	println(films[i].Vector[:])
 		records[0].FloatData = vectors[0]
-		searchBySingleVector(ctx, client, records)
+		searchBySingleVector(ctx, client, records, &wg1)
 	}
+	wg1.Wait()
 }
 
 type film struct {
