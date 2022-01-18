@@ -77,7 +77,7 @@ func deleteFilms(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitG
 	var wg1 sync.WaitGroup
 	for i = 0; i < 1500; i++ {
 		wg1.Add(1)
-		deleteSingleFilm(ctx, client, []int64{i}, &wg1)
+		go deleteSingleFilm(ctx, client, []int64{i}, &wg1)
 	}
 	wg1.Wait()
 }
@@ -115,7 +115,7 @@ func searchByVector(ctx context.Context, client milvus.MilvusClient, wg *sync.Wa
 		vectors = append(vectors, films[i].Vector[:]) // prevent same vector
 		//	println(films[i].Vector[:])
 		records[0].FloatData = vectors[0]
-		searchBySingleVector(ctx, client, records, &wg1)
+		go searchBySingleVector(ctx, client, records, &wg1)
 	}
 	wg1.Wait()
 }
