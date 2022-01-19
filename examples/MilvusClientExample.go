@@ -40,6 +40,7 @@ var topk int64 = 100
 var nlist int64 = 16384
 var err error
 var status milvus.Status
+var films []film
 
 /**
   measure function time by just calling this
@@ -49,6 +50,19 @@ func measureTime(funcName string) func() {
 	return func() {
 		fmt.Printf("Time taken by %s function is %v \n", funcName, time.Since(start))
 	}
+}
+
+func countEntities(ctx context.Context, client milvus.MilvusClient) {
+	count, status, err := client.CountEntities(ctx, collectionName)
+	if err != nil {
+		println("Insert rpc failed: " + err.Error())
+		return
+	}
+	if !status.Ok() {
+		println("Insert vector failed: " + status.GetMessage())
+		return
+	}
+	println("number of entities in collection is", count)
 }
 
 /**
@@ -120,73 +134,6 @@ func createCollection(ctx context.Context, client milvus.MilvusClient) {
 }
 
 /**
-  insert data in colection
-**/
-func insertToMilvus(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitGroup) {
-	defer wg.Done()
-	var i int64
-	var collections []string
-	collections, status, err = client.ListCollections(ctx)
-	if err != nil {
-		println("ShowCollections rpc failed: " + err.Error())
-		return
-	}
-	if !status.Ok() {
-		println("Show collections failed: " + status.GetMessage())
-		return
-	}
-	println("ShowCollections: ")
-	for i = 0; i < int64(len(collections)); i++ {
-		println(" - " + collections[i])
-	}
-	println("**************************************************")
-
-	var loop bool
-	loop = true
-	for loop == true {
-		//insert(ctx, client)
-	}
-}
-
-func insert(ctx context.Context, client milvus.MilvusClient, wg *sync.WaitGroup) {
-	defer wg.Done()
-	defer measureTime("insertToMilvus")()
-	var i, j int64
-	records := make([]milvus.Entity, nb)
-	recordArray := make([][]float32, nb)
-	vector_ids := makeRange(0, nb)
-	for i = 0; i < nb; i++ {
-		recordArray[i] = make([]float32, dimension)
-		for j = 0; j < dimension; j++ {
-			recordArray[i][j] = float32(i % (j + 1))
-		}
-		records[i].FloatData = recordArray[i]
-	}
-	insertParam := milvus.InsertParam{collectionName, "", records, vector_ids}
-	_, status, err := client.Insert(ctx, &insertParam)
-
-	if err != nil {
-		println("Insert rpc failed: " + err.Error())
-		return
-	}
-	if !status.Ok() {
-		println("Insert vector failed: " + status.GetMessage())
-		return
-	}
-	println("Insert vectors success!")
-}
-
-func makeRange(min, max int64) []int64 {
-	a := make([]int64, max-min)
-	var i int64
-
-	for i = 0; i < int64(len(a)); i++ {
-		a[i] = min + i
-	}
-	return a
-}
-
-/**
   drop collection
 **/
 func dropCollection(ctx context.Context, client milvus.MilvusClient) {
@@ -224,18 +171,41 @@ func dropCollection(ctx context.Context, client milvus.MilvusClient) {
 	println("Server status: " + serverStatus)
 }
 
+func createIndex(ctx context.Context, client milvus.MilvusClient) {
+	println("Start create index...")
+	extraParams := "{\"nlist\" : 16384}"
+	indexParam := milvus.IndexParam{collectionName, milvus.IVFFLAT, extraParams}
+	status, err = client.CreateIndex(ctx, &indexParam)
+	if err != nil {
+		println("CreateIndex rpc failed: " + err.Error())
+		return
+	}
+	if !status.Ok() {
+		println("Create index failed: " + status.GetMessage())
+		return
+	}
+	println("Create index success!")
+}
 func main() {
 	var wg sync.WaitGroup
 	address := "10.21.33.1"
 	port := "19530"
 	var ctx, client = serverConnection(address, port)
-	//	createCollection(ctx, client)
+	//dropCollection(ctx, client)
+	//createCollection(ctx, client)
+	films, err = loadFilmCSV()
+	//insertAllFilms(ctx, client)
+	//
+	flag := true
+	createIndex(ctx, client)
+	for flag {
+		wg.Add(1)
+		go insertFilms(ctx, client, &wg)
+		go deleteFilms(ctx, client, &wg)
+		go searchByVector(ctx, client, &wg)
+		wg.Wait()
+	}
 
-	wg.Add(3)
-	go insertFilms(ctx, client, &wg)
-	go deleteFilms(ctx, client, &wg)
-	go searchByVector(ctx, client, &wg)
-	wg.Wait()
 	countEntities(ctx, client)
 	println("**************************************************")
 	//dropCollection(ctx, client)
